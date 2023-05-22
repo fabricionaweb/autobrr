@@ -1,17 +1,17 @@
 import { fileURLToPath, URL } from "node:url";
-
 import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from "vite-plugin-pwa";
-import { defineConfig, loadEnv } from "vite";
+import { ConfigEnv, defineConfig, loadEnv, splitVendorChunkPlugin } from "vite";
+
 // https://vitejs.dev/config/
-export default ({ mode }: { mode: any }) => {
+export default ({ mode }: ConfigEnv) => {
   // early load .env file
-  process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
   // import.meta.env.VITE_NAME available here with: process.env.VITE_NAME
+  process.env = { ...process.env, ...loadEnv(mode, process.cwd()) };
 
   return defineConfig({
     base: "",
-    plugins: [react(), VitePWA({
+    plugins: [react(), splitVendorChunkPlugin(), VitePWA({
       registerType: "autoUpdate",
       injectRegister: "inline",
       scope: "{{.BaseUrl}}",
@@ -99,7 +99,34 @@ export default ({ mode }: { mode: any }) => {
     },
     build: {
       manifest: true,
-      sourcemap: true
+      sourcemap: true,
+      rollupOptions: {
+        output: {
+          manualChunks (id: string) {
+            // not much gain in split css files
+            if (/\.css/.test(id)) {
+              return "index";
+            }
+            if (/\/(react|react-dom|react-router-dom)@/.test(id)) {
+              return "react";
+            }
+            if (/react/.test(id)) {
+              return "react-vendor";
+            }
+            if (/src\/components/.test(id)) {
+              return "components";
+            }
+            if (/src\/forms/.test(id)) {
+              return "forms";
+            }
+            if (/src\/screens/.test(id)) {
+              return "screens";
+            }
+            // everything else we send to index.js
+            return "index";
+          }
+        }
+      }
     }
   });
 };
